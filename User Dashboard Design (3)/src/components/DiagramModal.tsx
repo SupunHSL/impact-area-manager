@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from './ui/dialog';
 import { Card } from './ui/card';
 import { ArrowRight, User, Calendar } from 'lucide-react';
@@ -14,6 +15,7 @@ interface DiagramModalProps {
   impactArea: ImpactArea;
   projectName: string;
   featureName: string;
+  subFeatureName?: string;
 }
 
 export function DiagramModal({
@@ -22,12 +24,16 @@ export function DiagramModal({
   impactArea,
   projectName,
   featureName,
+  subFeatureName,
 }: DiagramModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Impact Flow Diagram</DialogTitle>
+          <DialogDescription>
+            Visualize the impact flow from project to impact features.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -84,24 +90,17 @@ export function DiagramModal({
                 </div>
               </Card>
 
-              {impactArea.subFeatures.length > 0 && (
+              {subFeatureName && subFeatureName !== 'N/A' && (
                 <>
                   <ArrowRight className="w-6 h-6 text-gray-400 rotate-90" />
 
-                  {/* Sub Features */}
-                  <div className="w-full max-w-2xl space-y-3">
-                    <div className="text-center text-purple-600 mb-4">Sub Features</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {impactArea.subFeatures.map((subFeature, index) => (
-                        <Card
-                          key={index}
-                          className="p-4 bg-purple-50 border-purple-200 hover:shadow-md transition-shadow"
-                        >
-                          <div className="text-center text-purple-900">{subFeature}</div>
-                        </Card>
-                      ))}
+                  {/* Sub Feature */}
+                  <Card className="w-full max-w-md p-6 bg-purple-50 border-purple-200">
+                    <div className="text-center">
+                      <div className="text-purple-600 mb-2">Sub-Feature</div>
+                      <div className="text-purple-900">{subFeatureName}</div>
                     </div>
-                  </div>
+                  </Card>
                 </>
               )}
 

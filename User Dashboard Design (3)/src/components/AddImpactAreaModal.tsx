@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppState, ImpactArea, ImpactFeature } from '../App';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from './ui/dialog';
 import { Button } from './ui/button';
@@ -34,26 +35,28 @@ export function AddImpactAreaModal({
   appState,
   editingImpactArea,
 }: AddImpactAreaModalProps) {
-  const { projects, features, impactAreas, setProjects, setFeatures, setImpactAreas } =
+  const { projects, features, subFeatures, impactAreas, setProjects, setFeatures, setSubFeatures, setImpactAreas } =
     appState;
 
   const [projectId, setProjectId] = useState('');
   const [featureId, setFeatureId] = useState('');
-  const [subFeatures, setSubFeatures] = useState<string[]>(['']);
+  const [subFeatureId, setSubFeatureId] = useState('');
   const [impactFeatures, setImpactFeatures] = useState<ImpactFeature[]>([
     { id: '', name: '', impactPaths: [''], description: '' },
   ]);
   const [description, setDescription] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [newFeatureName, setNewFeatureName] = useState('');
+  const [newSubFeatureName, setNewSubFeatureName] = useState('');
   const [showNewProject, setShowNewProject] = useState(false);
   const [showNewFeature, setShowNewFeature] = useState(false);
+  const [showNewSubFeature, setShowNewSubFeature] = useState(false);
 
   useEffect(() => {
     if (editingImpactArea) {
       setProjectId(editingImpactArea.projectId);
       setFeatureId(editingImpactArea.featureId);
-      setSubFeatures(editingImpactArea.subFeatures.length > 0 ? editingImpactArea.subFeatures : ['']);
+      setSubFeatureId(editingImpactArea.subFeatureId || '');
       setImpactFeatures(editingImpactArea.impactFeatures.length > 0 ? editingImpactArea.impactFeatures : [
         { id: '', name: '', impactPaths: [''], description: '' },
       ]);
@@ -66,31 +69,26 @@ export function AddImpactAreaModal({
   const resetForm = () => {
     setProjectId('');
     setFeatureId('');
-    setSubFeatures(['']);
+    setSubFeatureId('');
     setImpactFeatures([{ id: '', name: '', impactPaths: [''], description: '' }]);
     setDescription('');
     setNewProjectName('');
     setNewFeatureName('');
+    setNewSubFeatureName('');
     setShowNewProject(false);
     setShowNewFeature(false);
+    setShowNewSubFeature(false);
   };
 
-  const filteredFeatures = features.filter((f) => f.projectId === projectId);
+  const filteredFeatures = useMemo(() => {
+    if (!projectId) return [];
+    return features.filter((f) => f.projectId === projectId);
+  }, [features, projectId]);
 
-  // Sub Features handlers
-  const handleAddSubFeature = () => {
-    setSubFeatures([...subFeatures, '']);
-  };
-
-  const handleRemoveSubFeature = (index: number) => {
-    setSubFeatures(subFeatures.filter((_, i) => i !== index));
-  };
-
-  const handleUpdateSubFeature = (index: number, value: string) => {
-    const updated = [...subFeatures];
-    updated[index] = value;
-    setSubFeatures(updated);
-  };
+  const filteredSubFeatures = useMemo(() => {
+    if (!featureId) return [];
+    return subFeatures.filter((sf) => sf.featureId === featureId);
+  }, [subFeatures, featureId]);
 
   // Impact Features handlers
   const handleAddImpactFeature = () => {
@@ -145,6 +143,7 @@ export function AddImpactAreaModal({
 
     let finalProjectId = projectId;
     let finalFeatureId = featureId;
+    let finalSubFeatureId = subFeatureId === '__none__' ? '' : subFeatureId;
 
     // Handle new project
     if (showNewProject && newProjectName.trim()) {
@@ -167,8 +166,16 @@ export function AddImpactAreaModal({
       finalFeatureId = newFeature.id;
     }
 
-    // Filter out empty sub features (sub features are optional)
-    const filteredSubFeatures = subFeatures.filter((sf) => sf.trim() !== '');
+    // Handle new sub-feature
+    if (showNewSubFeature && newSubFeatureName.trim()) {
+      const newSubFeature = {
+        id: `sf${Date.now()}`,
+        featureId: finalFeatureId,
+        name: newSubFeatureName.trim(),
+      };
+      setSubFeatures([...subFeatures, newSubFeature]);
+      finalSubFeatureId = newSubFeature.id;
+    }
 
     // Filter and validate impact features (at least one required with name)
     const filteredImpactFeatures = impactFeatures
@@ -190,7 +197,7 @@ export function AddImpactAreaModal({
         ...editingImpactArea,
         projectId: finalProjectId,
         featureId: finalFeatureId,
-        subFeatures: filteredSubFeatures,
+        subFeatureId: finalSubFeatureId || undefined,
         impactFeatures: filteredImpactFeatures,
         description: description.trim(),
         lastUpdatedBy: 'Current User',
@@ -205,7 +212,7 @@ export function AddImpactAreaModal({
         id: `ia${Date.now()}`,
         projectId: finalProjectId,
         featureId: finalFeatureId,
-        subFeatures: filteredSubFeatures,
+        subFeatureId: finalSubFeatureId || undefined,
         impactFeatures: filteredImpactFeatures,
         description: description.trim(),
         createdBy: 'Current User',
@@ -222,11 +229,14 @@ export function AddImpactAreaModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingImpactArea ? 'Edit Impact Area' : 'Add Impact Area'}
           </DialogTitle>
+          <DialogDescription>
+            Define the impact area by selecting project, feature, and sub-feature, then add impact features.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -240,6 +250,7 @@ export function AddImpactAreaModal({
                   onValueChange={(value) => {
                     setProjectId(value);
                     setFeatureId('');
+                    setSubFeatureId('');
                   }}
                 >
                   <SelectTrigger className="flex-1">
@@ -291,7 +302,10 @@ export function AddImpactAreaModal({
               <div className="flex gap-2">
                 <Select
                   value={featureId}
-                  onValueChange={setFeatureId}
+                  onValueChange={(value) => {
+                    setFeatureId(value);
+                    setSubFeatureId('');
+                  }}
                   disabled={!projectId && !showNewProject}
                 >
                   <SelectTrigger className="flex-1">
@@ -337,43 +351,106 @@ export function AddImpactAreaModal({
             )}
           </div>
 
-          {/* Sub Features */}
+          {/* Sub-Feature Selection */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Sub Features (Optional)</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddSubFeature}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Sub Feature
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {subFeatures.map((subFeature, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    placeholder={`Sub feature ${index + 1}`}
-                    value={subFeature}
-                    onChange={(e) => handleUpdateSubFeature(index, e.target.value)}
-                    className="flex-1"
-                  />
-                  {subFeatures.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveSubFeature(index)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+            <Label>Sub-Feature (Optional)</Label>
+            {!showNewSubFeature ? (
+              <div className="flex gap-2">
+                <Select
+                  value={subFeatureId}
+                  onValueChange={setSubFeatureId}
+                  disabled={!featureId && !showNewFeature}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select a sub-feature" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {filteredSubFeatures.map((subFeature) => (
+                      <SelectItem key={subFeature.id} value={subFeature.id}>
+                        {subFeature.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowNewSubFeature(true)}
+                  disabled={!featureId && !showNewFeature}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter new sub-feature name"
+                  value={newSubFeatureName}
+                  onChange={(e) => setNewSubFeatureName(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowNewSubFeature(false);
+                    setNewSubFeatureName('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Hierarchy Display */}
+          {(projectId || showNewProject) && (
+            <div className="p-4 rounded-lg bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <div className="px-3 py-1 rounded-md bg-indigo-600 text-white">
+                    {showNewProject && newProjectName.trim() 
+                      ? newProjectName 
+                      : projects.find((p) => p.id === projectId)?.name || 'Project'}
+                  </div>
+                  {(featureId || showNewFeature) && (
+                    <>
+                      <span className="text-indigo-400">⇒</span>
+                      <div className="px-3 py-1 rounded-md bg-blue-600 text-white">
+                        {showNewFeature && newFeatureName.trim()
+                          ? newFeatureName
+                          : features.find((f) => f.id === featureId)?.name || 'Feature'}
+                      </div>
+                    </>
                   )}
+                  {(subFeatureId && subFeatureId !== '__none__') || showNewSubFeature ? (
+                    <>
+                      <span className="text-blue-400">⇒</span>
+                      <div className="px-3 py-1 rounded-md bg-purple-600 text-white">
+                        {showNewSubFeature && newSubFeatureName.trim()
+                          ? newSubFeatureName
+                          : subFeatures.find((sf) => sf.id === subFeatureId)?.name || 'Sub-Feature'}
+                      </div>
+                    </>
+                  ) : null}
                 </div>
-              ))}
+              </div>
             </div>
+          )}
+
+          {/* Overall Description */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Overall Description (Optional)</Label>
+            <Textarea
+              id="description"
+              placeholder="Enter overall description for this impact area"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+              className="resize-none"
+            />
           </div>
 
           {/* Impact Features */}
@@ -484,18 +561,6 @@ export function AddImpactAreaModal({
                 </Card>
               ))}
             </div>
-          </div>
-
-          {/* Overall Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Overall Description (Optional)</Label>
-            <Textarea
-              id="description"
-              placeholder="Enter overall description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
           </div>
 
           <DialogFooter>

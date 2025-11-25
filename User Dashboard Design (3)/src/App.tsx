@@ -13,6 +13,12 @@ export interface Feature {
   name: string;
 }
 
+export interface SubFeature {
+  id: string;
+  featureId: string;
+  name: string;
+}
+
 export interface ImpactFeature {
   id: string;
   name: string;
@@ -24,7 +30,7 @@ export interface ImpactArea {
   id: string;
   projectId: string;
   featureId: string;
-  subFeatures: string[];
+  subFeatureId?: string;
   impactFeatures: ImpactFeature[];
   description?: string;
   createdBy: string;
@@ -36,9 +42,11 @@ export interface ImpactArea {
 export interface AppState {
   projects: Project[];
   features: Feature[];
+  subFeatures: SubFeature[];
   impactAreas: ImpactArea[];
   setProjects: (projects: Project[]) => void;
   setFeatures: (features: Feature[]) => void;
+  setSubFeatures: (subFeatures: SubFeature[]) => void;
   setImpactAreas: (impactAreas: ImpactArea[]) => void;
 }
 
@@ -59,12 +67,27 @@ const initialFeatures: Feature[] = [
   { id: 'f7', projectId: '3', name: 'Appointment Scheduling' },
 ];
 
+const initialSubFeatures: SubFeature[] = [
+  { id: 'sf1', featureId: 'f1', name: 'Stripe Integration' },
+  { id: 'sf2', featureId: 'f1', name: 'PayPal Integration' },
+  { id: 'sf3', featureId: 'f2', name: 'AWS Inventory Management' },
+  { id: 'sf4', featureId: 'f2', name: 'Database Layer Inventory Management' },
+  { id: 'sf5', featureId: 'f4', name: 'Wells Fargo Fund Transfer' },
+  { id: 'sf6', featureId: 'f4', name: 'Banking API Fund Transfer' },
+  { id: 'sf7', featureId: 'f4', name: 'Compliance Service Fund Transfer' },
+  { id: 'sf8', featureId: 'f6', name: 'Medical History Access' },
+  { id: 'sf9', featureId: 'f6', name: 'HIPAA Compliance' },
+  { id: 'sf10', featureId: 'f6', name: 'Data Encryption' },
+  { id: 'sf11', featureId: 'f6', name: 'Access Control' },
+  { id: 'sf12', featureId: 'f6', name: 'Audit Trail' },
+];
+
 const initialImpactAreas: ImpactArea[] = [
   {
     id: 'ia1',
     projectId: '1',
     featureId: 'f1',
-    subFeatures: [],
+    subFeatureId: 'sf1',
     impactFeatures: [
       {
         id: 'if1',
@@ -89,7 +112,7 @@ const initialImpactAreas: ImpactArea[] = [
     id: 'ia2',
     projectId: '1',
     featureId: 'f2',
-    subFeatures: [],
+    subFeatureId: 'sf3',
     impactFeatures: [
       {
         id: 'if3',
@@ -114,7 +137,7 @@ const initialImpactAreas: ImpactArea[] = [
     id: 'ia3',
     projectId: '2',
     featureId: 'f4',
-    subFeatures: [],
+    subFeatureId: 'sf5',
     impactFeatures: [
       {
         id: 'if5',
@@ -145,7 +168,7 @@ const initialImpactAreas: ImpactArea[] = [
     id: 'ia4',
     projectId: '3',
     featureId: 'f6',
-    subFeatures: [],
+    subFeatureId: 'sf8',
     impactFeatures: [
       {
         id: 'if8',
@@ -190,14 +213,17 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [features, setFeatures] = useState<Feature[]>(initialFeatures);
+  const [subFeatures, setSubFeatures] = useState<SubFeature[]>(initialSubFeatures);
   const [impactAreas, setImpactAreas] = useState<ImpactArea[]>(initialImpactAreas);
 
   const appState: AppState = {
     projects,
     features,
+    subFeatures,
     impactAreas,
     setProjects,
     setFeatures,
+    setSubFeatures,
     setImpactAreas,
   };
 

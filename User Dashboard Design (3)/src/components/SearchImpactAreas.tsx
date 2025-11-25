@@ -4,6 +4,7 @@ import { Card, CardHeader, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Checkbox } from './ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -24,7 +25,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from './ui/popover';
-import { Plus, Pencil, Trash2, Network, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Network, Eye, Download } from 'lucide-react';
 import { AddImpactAreaModal } from './AddImpactAreaModal';
 import { DiagramModal } from './DiagramModal';
 
@@ -39,8 +40,9 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingImpactArea, setEditingImpactArea] = useState<ImpactArea | null>(null);
   const [diagramImpactArea, setDiagramImpactArea] = useState<ImpactArea | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  const { projects, features, impactAreas, setImpactAreas } = appState;
+  const { projects, features, subFeatures, impactAreas, setImpactAreas } = appState;
 
   // Filter features based on selected project
   const filteredFeatures = useMemo(() => {
@@ -63,10 +65,9 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
         // Check if query matches in feature name
         const featureNameMatch = featureName.includes(query);
         
-        // Check if query matches any sub feature
-        const subFeatureMatch = ia.subFeatures.some((sf) => 
-          sf.toLowerCase().includes(query)
-        );
+        // Check if query matches sub feature
+        const subFeature = subFeatures.find((sf) => sf.id === ia.subFeatureId);
+        const subFeatureMatch = subFeature?.name.toLowerCase().includes(query) || false;
         
         // Check if query matches any impact feature name
         const impactFeatureMatch = ia.impactFeatures.some((imf) => 
@@ -85,7 +86,7 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
       
       return projectMatch && featureMatch;
     });
-  }, [impactAreas, selectedProject, selectedFeature, searchQuery, features]);
+  }, [impactAreas, selectedProject, selectedFeature, searchQuery, features, subFeatures]);
 
   const getProjectName = (projectId: string) => {
     return projects.find((p) => p.id === projectId)?.name || 'Unknown';
@@ -95,9 +96,19 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
     return features.find((f) => f.id === featureId)?.name || 'Unknown';
   };
 
+  const getSubFeatureName = (subFeatureId?: string) => {
+    if (!subFeatureId) return 'N/A';
+    return subFeatures.find((sf) => sf.id === subFeatureId)?.name || 'Unknown';
+  };
+
   const handleDelete = (id: string) => {
     if (confirm('Are you sure you want to delete this impact area?')) {
       setImpactAreas(impactAreas.filter((ia) => ia.id !== id));
+      setSelectedRows((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
   };
 
@@ -110,6 +121,81 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
     setDiagramImpactArea(impactArea);
   };
 
+  const toggleSelectAll = () => {
+    if (selectedRows.size === filteredImpactAreas.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(filteredImpactAreas.map((ia) => ia.id)));
+    }
+  };
+
+  const toggleSelectRow = (id: string) => {
+    setSelectedRows((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleDownloadCSV = () => {
+    const selectedImpactAreas = impactAreas.filter((ia) => selectedRows.has(ia.id));
+    
+    // CSV headers
+    const headers = [
+      'Project',
+      'Feature',
+      'Sub-Feature',
+      'Impact Features',
+      'Impact Paths',
+      'Description',
+      'Created By',
+      'Last Updated By',
+      'Created At',
+      'Updated At',
+    ];
+
+    // Build CSV rows
+    const rows = selectedImpactAreas.map((ia) => {
+      const impactFeaturesStr = ia.impactFeatures
+        .map((imf) => imf.name)
+        .join('; ');
+      const impactPathsStr = ia.impactFeatures
+        .map((imf) => imf.impactPaths.join(', '))
+        .join('; ');
+
+      return [
+        getProjectName(ia.projectId),
+        getFeatureName(ia.featureId),
+        getSubFeatureName(ia.subFeatureId),
+        impactFeaturesStr,
+        impactPathsStr,
+        ia.description || '',
+        ia.createdBy,
+        ia.lastUpdatedBy,
+        ia.createdAt,
+        ia.updatedAt,
+      ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`);
+    });
+
+    // Combine into CSV string
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+
+    // Create download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `impact_areas_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -119,16 +205,27 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
             Filter and manage impact areas across projects
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setEditingImpactArea(null);
-            setIsAddModalOpen(true);
-          }}
-          className="bg-indigo-600 hover:bg-indigo-700"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Add Impact Area
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleDownloadCSV}
+            disabled={selectedRows.size === 0}
+            variant="outline"
+            className="border-green-600 text-green-600 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Download CSV ({selectedRows.size})
+          </Button>
+          <Button
+            onClick={() => {
+              setEditingImpactArea(null);
+              setIsAddModalOpen(true);
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Impact Area
+          </Button>
+        </div>
       </div>
 
       {/* Filters Card */}
@@ -200,9 +297,18 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={
+                        filteredImpactAreas.length > 0 &&
+                        selectedRows.size === filteredImpactAreas.length
+                      }
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Feature</TableHead>
-                  <TableHead>Sub Features</TableHead>
+                  <TableHead>Sub-Feature</TableHead>
                   <TableHead>Impact Features</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -210,31 +316,22 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
               <TableBody>
                 {filteredImpactAreas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                       No impact areas found
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredImpactAreas.map((impactArea) => (
                     <TableRow key={impactArea.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRows.has(impactArea.id)}
+                          onCheckedChange={() => toggleSelectRow(impactArea.id)}
+                        />
+                      </TableCell>
                       <TableCell>{getProjectName(impactArea.projectId)}</TableCell>
                       <TableCell>{getFeatureName(impactArea.featureId)}</TableCell>
-                      <TableCell>
-                        {impactArea.subFeatures.length === 0 ? (
-                          <span className="text-gray-400 italic">No sub features</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {impactArea.subFeatures.map((subFeature, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center px-2 py-1 rounded-md bg-purple-100 text-purple-700"
-                              >
-                                {subFeature}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </TableCell>
+                      <TableCell>{getSubFeatureName(impactArea.subFeatureId)}</TableCell>
                       <TableCell>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -342,6 +439,7 @@ export function SearchImpactAreas({ appState }: SearchImpactAreasProps) {
           impactArea={diagramImpactArea}
           projectName={getProjectName(diagramImpactArea.projectId)}
           featureName={getFeatureName(diagramImpactArea.featureId)}
+          subFeatureName={getSubFeatureName(diagramImpactArea.subFeatureId)}
         />
       )}
     </div>
