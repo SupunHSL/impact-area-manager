@@ -18,6 +18,8 @@ import {
   CollapsibleTrigger,
 } from './ui/collapsible';
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, FolderOpen, FileText, Layers } from 'lucide-react';
+import { collection, addDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 interface ManageProjectsProps {
   appState: AppState;
@@ -86,16 +88,23 @@ export function ManageProjects({ appState }: ManageProjectsProps) {
     setFormValue('');
   };
 
+  const addProject = async (projectName: string) => {
+    try {
+      const docRef = await addDoc(collection(db, "projects"), {
+        name: projectName,
+      });
+      console.log("Document written with ID: ", docRef.id);
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formValue.trim()) return;
 
     if (modalType === 'addProject') {
-      const newProject: Project = {
-        id: `p${Date.now()}`,
-        name: formValue.trim(),
-      };
-      setProjects([...projects, newProject]);
+      addProject(formValue.trim());
     } else if (modalType === 'editProject' && selectedProject) {
       setProjects(
         projects.map((p) =>

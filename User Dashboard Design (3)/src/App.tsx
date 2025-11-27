@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LoginPage } from './components/LoginPage';
 import { Dashboard } from './components/Dashboard';
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "./firebase";
 
 export interface Project {
   id: string;
@@ -49,13 +51,6 @@ export interface AppState {
   setSubFeatures: (subFeatures: SubFeature[]) => void;
   setImpactAreas: (impactAreas: ImpactArea[]) => void;
 }
-
-// Mock data
-const initialProjects: Project[] = [
-  { id: '1', name: 'E-Commerce Platform' },
-  { id: '2', name: 'Mobile Banking App' },
-  { id: '3', name: 'Healthcare Portal' },
-];
 
 const initialFeatures: Feature[] = [
   { id: 'f1', projectId: '1', name: 'Payment Gateway' },
@@ -211,10 +206,20 @@ const initialImpactAreas: ImpactArea[] = [
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [features, setFeatures] = useState<Feature[]>(initialFeatures);
   const [subFeatures, setSubFeatures] = useState<SubFeature[]>(initialSubFeatures);
   const [impactAreas, setImpactAreas] = useState<ImpactArea[]>(initialImpactAreas);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      const projectsCollection = await getDocs(collection(db, "projects"));
+      const projectsData = projectsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
+      setProjects(projectsData);
+    };
+
+    fetchProjects();
+  }, []);
 
   const appState: AppState = {
     projects,
